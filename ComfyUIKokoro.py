@@ -250,7 +250,7 @@ class KokoroGenerator:
             lang = "en-us"
 
         try:
-            kokoro = Kokoro(model_path=self.model_path, voices_path=self.voices_path)
+            kokoro = Kokoro(model_path=self.model_path, voices_path=self.voices_path, device=device)
         except Exception as e:
              logger.error(f"ERROR: could not load kokoro-onnx in generate: {e}")
              # np.load = np_load_old
