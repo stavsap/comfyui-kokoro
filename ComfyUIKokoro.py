@@ -245,6 +245,7 @@ class KokoroGenerator:
         # np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True, **k)
 
         lang = supported_languages[lang]
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")  # Ensure Torch runs on GPU if available
 
         if lang is None:
             lang = "en-us"
@@ -269,7 +270,7 @@ class KokoroGenerator:
              return (None,)
 
         # np.load = np_load_old
-        audio_tensor = torch.from_numpy(audio).unsqueeze(0).unsqueeze(0).float()  # Add a batch dimension AND a channel dimension
+        audio_tensor = torch.from_numpy(audio).unsqueeze(0).unsqueeze(0).float().to(device)  # Add a batch dimension AND a channel dimension
 
         return ({"waveform": audio_tensor, "sample_rate": sample_rate},) #return as tuple
 
