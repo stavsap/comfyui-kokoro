@@ -170,6 +170,7 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
-kokoro-v0_19.onnx
+kokoro_v1.onnx
 voices.json
 voices.bin
+voices_v1.bin

@@ -1,5 +1,6 @@
-kokoro-onnx==0.4.2
+kokoro-onnx
 onnxruntime
+onnxruntime-gpu
 numpy
 requests
 tqdm

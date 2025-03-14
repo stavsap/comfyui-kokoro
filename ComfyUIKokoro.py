@@ -1,11 +1,17 @@
+import os
 import numpy as np
 import torch
+import onnxruntime as ort
 from kokoro_onnx import Kokoro
 import logging
-import os
 import requests
 from tqdm import tqdm
 import io
+
+
+# ONNX to use GPU if available
+if torch.cuda.is_available():
+    os.environ["ONNX_PROVIDER"] = "CUDAExecutionProvider"
 
 logger = logging.getLogger(__name__)
 
@@ -241,35 +247,28 @@ class KokoroGenerator:
         download_model(self.node_dir)
         download_voices(self.node_dir)
 
-        # np_load_old = np.load
-        # np.load = lambda *a, **k: np_load_old(*a, allow_pickle=True, **k)
-
-        lang = supported_languages[lang]
-
-        if lang is None:
-            lang = "en-us"
+        lang = supported_languages[lang] or "en-us"
 
         try:
             kokoro = Kokoro(model_path=self.model_path, voices_path=self.voices_path)
+            logger.info(f"Kokoro successfully initialized. ONNX is using: {ort.get_device()}")
         except Exception as e:
              logger.error(f"ERROR: could not load kokoro-onnx in generate: {e}")
-             # np.load = np_load_old
              return (None,)
 
         try:
             audio, sample_rate = kokoro.create(text, voice=speaker["speaker"], speed=speed, lang=lang)
         except Exception as e:
             logger.error(f"{e}")
-            # np.load = np_load_old
             return (None,)
 
         if audio is None:
              logger.error("no audio is generated")
-             # np.load = np_load_old
              return (None,)
 
-        # np.load = np_load_old
-        audio_tensor = torch.from_numpy(audio).unsqueeze(0).unsqueeze(0).float()  # Add a batch dimension AND a channel dimension
+        # Ensure tensor is on the correct device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        audio_tensor = torch.from_numpy(audio).unsqueeze(0).unsqueeze(0).float().to(device) # Add a batch dimension AND a channel dimension
 
         return ({"waveform": audio_tensor, "sample_rate": sample_rate},) #return as tuple
 
