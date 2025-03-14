@@ -1,13 +1,11 @@
 import os
 import numpy as np
 import torch
-import onnxruntime as ort
 from kokoro_onnx import Kokoro
 import logging
 import requests
 from tqdm import tqdm
 import io
-
 
 # ONNX to use GPU if available
 if torch.cuda.is_available():
@@ -33,6 +31,7 @@ supported_languages = {
     supported_languages_display[8]: "it",
 }
 
+# See https://huggingface.co/hexgrad/Kokoro-82M/blob/main/VOICES.md for quality rankings. 
 supported_voices =[
     # American Female
     "af_heart",
@@ -73,26 +72,36 @@ supported_voices =[
     "jf_tebukuro",
     # Japanese Male
     "jm_kumo",
-
+    # Mandarin Chinese Female
     "zf_xiaobei",
     "zf_xiaoni",
     "zf_xiaoxiao",
     "zf_xiaoyi",
+    # Mandarin Chinese Male
     "zm_yunjian",
     "zm_yunxi",
     "zm_yunxia",
     "zm_yunyang",
+    # Spanish Female
     "ef_dora",
+    # Spanish Male
     "em_alex",
     "em_santa",
+    # French Female
     "ff_siwis",
+    # Indian Female
     "hf_alpha",
     "hf_beta",
+    # Indian Male
     "hm_omega",
     "hm_psi",
+    # Italian Female
     "if_sara",
+    # Italian Male
     "im_nicola",
+    # Brazilian Female
     "pf_dora",
+    # Brazilian Male
     "pm_alex",
     "pm_santa",
 ]
@@ -251,7 +260,6 @@ class KokoroGenerator:
 
         try:
             kokoro = Kokoro(model_path=self.model_path, voices_path=self.voices_path)
-            logger.info(f"Kokoro successfully initialized. ONNX is using: {ort.get_device()}")
         except Exception as e:
              logger.error(f"ERROR: could not load kokoro-onnx in generate: {e}")
              return (None,)
