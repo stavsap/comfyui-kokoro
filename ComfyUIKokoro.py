@@ -91,6 +91,7 @@ supported_voices =[
     "pm_santa",
 ]
 
+
 def download_file(url, file_name, path):
     if not os.path.exists(path):
         os.makedirs(path)
@@ -134,6 +135,7 @@ def download_model(path):
         return
     download_file(MODEL_URL, MODEL_FILENAME, path)
 
+
 class KokoroSpeaker:
     @classmethod
     def INPUT_TYPES(s):
@@ -169,6 +171,104 @@ class KokoroSpeaker:
     @classmethod
     def IS_CHANGED(cls, speaker_name):
         return hash(speaker_name)
+
+
+class KokoroWeightedSpeaker:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "speaker_name": (
+                    supported_voices,
+                    {"default": "af_sarah"},
+                ),
+                "weight": ("FLOAT", {"default": 0.5, "min": 0, "max": 1, "step": 0.05}),
+            },
+        }
+
+    RETURN_TYPES = ("KOKORO_WEIGHTED_SPEAKER",)
+    RETURN_NAMES = ("weighted_speaker",)
+
+    FUNCTION = "select"
+
+    CATEGORY = "kokoro"
+
+    def __init__(self):
+        self.kokoro = None
+        self.node_dir = os.path.dirname(os.path.abspath(__file__))
+        self.voices_path = os.path.join(self.node_dir, VOICES_FILENAME)
+        self.model_path = os.path.join(self.node_dir, MODEL_FILENAME)
+
+    def select(self, speaker_name, weight):
+        """
+        replace the speaker name with the speaker numpy array
+        """
+        download_model(self.node_dir)
+        download_voices(self.node_dir)
+        kokoro = Kokoro(self.model_path, self.voices_path)
+        speaker: np.ndarray = kokoro.get_voice_style(speaker_name)
+        return ({"speaker": speaker, "weight": weight},)
+
+    @classmethod
+    def IS_CHANGED(cls, speaker_name, weight):
+        return hash((speaker_name, weight))
+
+
+class KokoroWeightCombiner:
+    """
+    Given _any_number of linked speakers, normalize their weights so they sum to
+    1, and return the combined speaker object (speakers and weights).
+    """
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "speaker_0": ("KOKORO_WEIGHTED_SPEAKER", ),
+            },
+            "optional": {
+                "speaker_1": ("KOKORO_WEIGHTED_SPEAKER", ),
+                "speaker_2": ("KOKORO_WEIGHTED_SPEAKER", ),
+                "speaker_3": ("KOKORO_WEIGHTED_SPEAKER", ),
+                "speaker_4": ("KOKORO_WEIGHTED_SPEAKER", ),
+                "speaker_5": ("KOKORO_WEIGHTED_SPEAKER", ),
+                "speaker_6": ("KOKORO_WEIGHTED_SPEAKER", ),
+                "speaker_7": ("KOKORO_WEIGHTED_SPEAKER", ),
+                "speaker_8": ("KOKORO_WEIGHTED_SPEAKER", ),
+                "speaker_9": ("KOKORO_WEIGHTED_SPEAKER", ),
+            }
+        }
+
+    RETURN_TYPES = ("KOKORO_SPEAKER",)
+    RETURN_NAMES = ("speaker",)
+
+    FUNCTION = "normalize"
+
+    CATEGORY = "kokoro"
+
+    def normalize(self, **speakers):
+        # clear any empty speakers
+        # logger.info(f"Normalizing speakers: {speakers}")
+        speakers = {k: v for k, v in speakers.items() if v}
+
+        total_weight = sum(s["weight"] for s in speakers.values())
+        if total_weight == 0:
+            # even weight distribution if all weights are zero
+            normalized_speakers = [{"speaker": s["speaker"], "weight": 1.0 / len(speakers)} for s in speakers.values()]
+        else:
+            normalized_speakers = [{"speaker": s["speaker"], "weight": s["weight"] / total_weight} for s in speakers.values()]
+
+        sample_speaker = normalized_speakers[0]["speaker"]
+        
+        combined_speaker = np.zeros_like(sample_speaker)
+        for s in normalized_speakers:
+            combined_speaker += s["speaker"] * s["weight"]
+
+        return ({"speaker": combined_speaker},)
+
+    @classmethod
+    def IS_CHANGED(cls, **speakers):
+        return hash(tuple((s["speaker"].tobytes(), s["weight"]) for s in speakers.values()))
+    
 
 class KokoroSpeakerCombiner:
     @classmethod
@@ -207,6 +307,7 @@ class KokoroSpeakerCombiner:
     @classmethod
     def IS_CHANGED(cls, speaker_a, speaker_b, weight):
         return hash((speaker_a, speaker_b, weight))
+
 
 class KokoroGenerator:
     @classmethod
@@ -281,12 +382,15 @@ class KokoroGenerator:
 
 NODE_CLASS_MAPPINGS = {
     "KokoroGenerator": KokoroGenerator,
-    "KokoroSpeaker": KokoroSpeaker,
+    "KokoroWeightedSpeaker": KokoroWeightedSpeaker,
     "KokoroSpeakerCombiner": KokoroSpeakerCombiner,
+    "KokoroWeightCombiner": KokoroWeightCombiner,
 }
 
 NODE_DISPLAY_NAME_MAPPINGS = {
     "KokoroGenerator": "Kokoro Generator",
+    "KokoroWeightedSpeaker": "Kokoro Weighted Speaker",
+    "KokoroWeightCombiner": "Kokoro Weight Combiner",
     "KokoroSpeaker": "Kokoro Speaker",
     "KokoroSpeakerCombiner": "Kokoro Speaker Combiner",
 }
